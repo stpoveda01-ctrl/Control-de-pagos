@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SplitCard — Divide tu extracto</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0a0f; --surface:#13131a; --surface2:#1c1c28; --border:#2a2a3d;
+    --accent:#6c63ff; --accent2:#ff6584; --accent3:#43e97b; --text:#e8e8f0; --muted:#6b6b8a;
+    --card-shadow:0 4px 24px rgba(108,99,255,0.15);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(108,99,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(108,99,255,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  header{position:relative;z-index:1;padding:2rem 2rem 1rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid var(--border);}
+  .logo{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .logo-sub{font-size:0.75rem;color:var(--muted);margin-top:-4px;}
+  .container{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:1.5rem 1.5rem 4rem;display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
+  @media(max-width:900px){.container{grid-template-columns:1fr;}}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem;}
+  .panel-title{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1.2rem;display:flex;align-items:center;gap:.5rem;}
+  .panel-title .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
+  .upload-zone{border:2px dashed var(--border);border-radius:12px;padding:2.5rem 1rem;text-align:center;cursor:pointer;transition:all .3s;position:relative;}
+  .upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(108,99,255,.05);}
+  .upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+  .upload-icon{font-size:2.5rem;margin-bottom:.5rem;}
+  .upload-text{color:var(--muted);font-size:.85rem;}
+  .upload-text span{color:var(--accent);}
+  .ai-parsing{display:none;flex-direction:column;align-items:center;gap:1rem;padding:2rem;text-align:center;}
+  .ai-parsing.active{display:flex;}
+  .ai-spinner{width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .ai-status{font-size:.85rem;color:var(--muted);}
+  .ai-status span{color:var(--accent);}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem;}
+  .info-field label{display:block;font-size:.7rem;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em;}
+  .info-field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:.85rem;padding:.5rem .75rem;outline:none;transition:border-color .2s;}
+  .info-field input:focus{border-color:var(--accent);}
+  .info-field.full{grid-column:1/-1;}
+  .people-list{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;}
+  .person-tag{display:inline-flex;align-items:center;gap:.4rem;background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:.3rem .75rem;font-size:.8rem;cursor:pointer;transition:all .2s;}
+  .person-tag:hover{border-color:var(--accent2);}
+  .person-tag .remove{color:var(--accent2);font-size:.9rem;line-height:1;}
+  .person-tag .color-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .add-person{display:flex;gap:.5rem;}
+  .add-person input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:.85rem;padding:.5rem .75rem;outline:none;transition:border-color .2s;}
+  .add-person input:focus{border-color:var(--accent3);}
+  .btn{background:linear-gradient(135deg,var(--accent),#8b5cf6);border:none;border-radius:8px;color:#fff;font-family:'Syne',sans-serif;font-weight:600;font-size:.85rem;padding:.5rem 1rem;cursor:pointer;transition:opacity .2s,transform .1s;white-space:nowrap;}
+  .btn:hover{opacity:.9;transform:translateY(-1px);}
+  .btn:active{transform:translateY(0);}
+  .btn-sm{padding:.35rem .75rem;font-size:.75rem;}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);}
+  .btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-danger{background:linear-gradient(135deg,#ff6584,#e05);}
+  .btn-success{background:linear-gradient(135deg,var(--accent3),#00b09b);}
+  .transactions-area{grid-column:1/-1;}
+  .tx-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;}
+  .tx-count{font-size:.8rem;color:var(--muted);}
+  table{width:100%;border-collapse:collapse;font-size:.8rem;}
+  th{text-align:left;color:var(--muted);font-weight:500;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;padding:.5rem .75rem;border-bottom:1px solid var(--border);}
+  td{padding:.6rem .75rem;border-bottom:1px solid rgba(42,42,61,.5);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(108,99,255,.04);}
+  .tx-amount{color:var(--accent2);font-weight:500;white-space:nowrap;}
+  .split-selector{display:flex;flex-wrap:wrap;gap:.3rem;min-width:180px;}
+  .split-chip{display:inline-flex;align-items:center;gap:.3rem;border:1px solid var(--border);border-radius:100px;padding:.2rem .5rem;font-size:.7rem;cursor:pointer;transition:all .15s;background:transparent;color:var(--muted);white-space:nowrap;}
+  .split-chip.active{color:#fff;border-color:transparent;}
+  .split-chip .cdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .summary-area{grid-column:1/-1;}
+  .summary-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;}
+  .summary-card{background:var(--surface2);border-radius:12px;border:1px solid var(--border);padding:1.2rem;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;}
+  .summary-card:hover{transform:translateY(-2px);box-shadow:var(--card-shadow);}
+  .summary-name{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;}
+  .summary-name .avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#fff;flex-shrink:0;}
+  .summary-row{display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.78rem;}
+  .summary-row .label{color:var(--muted);}
+  .summary-total{border-top:1px solid var(--border);margin-top:.75rem;padding-top:.75rem;font-family:'Syne',sans-serif;}
+  .totals-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+  .total-item{background:var(--surface2);border-radius:10px;padding:.75rem 1rem;border:1px solid var(--border);}
+  .total-item .t-label{font-size:.7rem;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;}
+  .total-item .t-value{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;}
+  .empty-state{text-align:center;padding:3rem 1rem;color:var(--muted);}
+  .empty-state .big{font-size:3rem;margin-bottom:.5rem;}
+  .manual-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:.5rem;align-items:start;margin-bottom:.5rem;}
+  @media(max-width:700px){.manual-row{grid-template-columns:1fr 1fr;}}
+  .manual-row input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:.8rem;padding:.45rem .6rem;outline:none;width:100%;transition:border-color .2s;}
+  .manual-row input:focus{border-color:var(--accent);}
+  .section-divider{text-align:center;position:relative;margin:.75rem 0;color:var(--muted);font-size:.75rem;}
+  .section-divider::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:var(--border);}
+  .section-divider span{position:relative;background:var(--surface);padding:0 .75rem;}
+  .badge{display:inline-block;padding:.15rem .5rem;border-radius:100px;font-size:.65rem;font-weight:600;text-transform:uppercase;}
+  .badge-purple{background:rgba(108,99,255,.2);color:var(--accent);}
+  .badge-green{background:rgba(67,233,123,.2);color:var(--accent3);}
+  .flex-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+  .mt-1{margin-top:.5rem;}.mt-2{margin-top:1rem;}
+  .table-scroll{overflow-x:auto;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .fade-in{animation:fadeIn .3s ease forwards;}
+  .highlight-accent{color:var(--accent);}
+  .highlight-red{color:var(--accent2);}
+  .highlight-green{color:var(--accent3);}
+  .progress-bar{height:4px;background:var(--border);border-radius:2px;margin-top:.5rem;overflow:hidden;}
+  .progress-fill{height:100%;border-radius:2px;transition:width .5s ease;}
+  .ai-banner{background:linear-gradient(135deg,rgba(108,99,255,.15),rgba(255,101,132,.1));border:1px solid rgba(108,99,255,.3);border-radius:10px;padding:.75rem 1rem;font-size:.8rem;color:var(--text);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;}
+  .file-info{display:none;align-items:center;gap:.75rem;padding:.75rem;background:rgba(67,233,123,.08);border:1px solid rgba(67,233,123,.3);border-radius:10px;margin-bottom:1rem;font-size:.8rem;}
+  .file-info.show{display:flex;}
+  .file-name{color:var(--accent3);font-weight:500;}
+  .file-size{color:var(--muted);font-size:.7rem;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="logo">SplitCard</div>
+    <div class="logo-sub">Divide tu extracto · cualquier banco · con IA</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <div>
+    <div class="panel">
+      <div class="panel-title"><span class="dot"></span>Extracto Bancario</div>
+      <div class="ai-banner">🤖 La IA lee tu PDF automáticamente — funciona con cualquier banco colombiano</div>
+
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept=".pdf,.csv,.txt" onchange="handleFile(event)">
+        <div class="upload-icon">📄</div>
+        <div class="upload-text">
+          Sube tu extracto en <span>PDF, CSV o TXT</span><br>
+          <span style="font-size:.75rem;color:var(--muted)">Serfinanza · Bancolombia · Davivienda · BBVA · Falabella · y más</span>
+        </div>
+      </div>
+
+      <div class="file-info" id="fileInfo">
+        <div style="font-size:1.5rem">📋</div>
+        <div><div class="file-name" id="fileName">—</div><div class="file-size" id="fileSize">—</div></div>
+        <button class="btn btn-sm btn-danger" style="margin-left:auto" onclick="clearFile()">✕</button>
+      </div>
+
+      <div class="ai-parsing" id="aiParsing">
+        <div class="ai-spinner"></div>
+        <div class="ai-status">Analizando extracto con IA...<br><span id="aiStatusText">Leyendo el PDF</span></div>
+      </div>
+
+      <div class="section-divider mt-2"><span>Información del extracto</span></div>
+      <div class="info-grid mt-1">
+        <div class="info-field full"><label>Banco detectado</label><input type="text" id="bankName" placeholder="Se detecta automáticamente del PDF"></div>
+        <div class="info-field"><label>Tarjeta / Cuenta</label><input type="text" id="cardNum" placeholder="Últimos dígitos"></div>
+        <div class="info-field"><label>Fecha límite pago</label><input type="date" id="dueDate"></div>
+        <div class="info-field"><label>Pago Mínimo</label><input type="text" id="minPay" placeholder="0.00" oninput="updateSummary()"></div>
+        <div class="info-field"><label>Pago Total</label><input type="text" id="totalPay" placeholder="0.00" oninput="updateSummary()"></div>
+        <div class="info-field"><label>Saldo anterior</label><input type="text" id="prevBalance" placeholder="0.00" oninput="updateSummary()"></div>
+        <div class="info-field"><label>Tasa interés</label><input type="text" id="interestRate" placeholder="0.00%"></div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <div class="panel-title"><span class="dot"></span>Personas</div>
+      <div class="people-list" id="peopleList"></div>
+      <div class="add-person">
+        <input type="text" id="personInput" placeholder="Nombre de la persona..." onkeydown="if(event.key==='Enter')addPerson()">
+        <button class="btn btn-sm btn-success" onclick="addPerson()">+ Agregar</button>
+      </div>
+      <div style="margin-top:1rem;font-size:.75rem;color:var(--muted);">💡 Cada compra puede asignarse a una o varias personas. Los pagos se distribuyen proporcionalmente.</div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-title"><span class="dot"></span>Agregar Compra Manual</div>
+      <div id="manualRows">
+        <div class="manual-row" id="mr-0">
+          <input placeholder="Descripción" class="desc">
+          <input placeholder="Valor total" class="amount" type="number">
+          <input placeholder="# cuotas" class="cuotas" type="number" min="1" value="1">
+          <input placeholder="Cuota actual" class="cuotaNum" type="number" min="1" value="1">
+          <button class="btn btn-sm btn-danger" onclick="removeRow(this)">✕</button>
+        </div>
+      </div>
+      <div class="flex-row mt-1">
+        <button class="btn btn-outline btn-sm" onclick="addManualRow()">+ Fila</button>
+        <button class="btn btn-sm" onclick="commitManual()">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="transactions-area">
+    <div class="panel">
+      <div class="tx-header">
+        <div class="panel-title" style="margin-bottom:0"><span class="dot"></span>Transacciones</div>
+        <div class="flex-row">
+          <span class="tx-count" id="txCount">0 transacciones</span>
+          <button class="btn btn-outline btn-sm" onclick="addSampleData()">📋 Ejemplo Serfinanza</button>
+          <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑 Limpiar</button>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Fecha</th><th>Descripción</th><th>Valor</th><th>Cuotas</th><th>Saldo diferido</th><th>Asignar a</th><th></th></tr></thead>
+          <tbody id="txBody"><tr><td colspan="7"><div class="empty-state"><div class="big">💳</div>Sube un PDF o agrega compras manualmente</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-area">
+    <div class="panel">
+      <div class="panel-title"><span class="dot"></span>Resumen de División</div>
+      <div class="totals-bar" id="totalsBar"></div>
+      <div class="summary-cards" id="summaryCards">
+        <div class="empty-state" style="grid-column:1/-1">Agrega personas y asigna compras para ver el resumen</div>
+      </div>
+      <div id="unassignedNote" style="display:none;margin-top:1rem;padding:.75rem;background:rgba(255,101,132,.1);border:1px solid rgba(255,101,132,.3);border-radius:8px;font-size:.8rem;color:var(--accent2);">
+        ⚠️ <span id="unassignedText"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const COLORS=['#6c63ff','#ff6584','#43e97b','#f59e0b','#06b6d4','#ec4899','#8b5cf6','#10b981','#f97316','#14b8a6'];
+let people=[],transactions=[],txAssignments={},txIdCounter=0;
+
+function formatCOP(n){if(isNaN(n)||n===null)return'$0';return'$'+parseFloat(n).toLocaleString('es-CO',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function parseMoney(s){if(!s)return 0;return parseFloat(String(s).replace(/[$.,%\s]/g,'').replace(/\./g,'').replace(',','.'))||0;}
+
+function addPerson(){
+  const inp=document.getElementById('personInput');
+  const name=inp.value.trim();
+  if(!name||people.includes(name)){inp.focus();return;}
+  people.push(name);inp.value='';
+  renderPeople();renderTxTable();updateSummary();
+}
+function removePerson(name){
+  people=people.filter(p=>p!==name);
+  Object.values(txAssignments).forEach(set=>set.delete(name));
+  renderPeople();renderTxTable();updateSummary();
+}
+function personColor(name){return COLORS[people.indexOf(name)%COLORS.length];}
+function renderPeople(){
+  const el=document.getElementById('peopleList');
+  if(!people.length){el.innerHTML='<span style="color:var(--muted);font-size:.8rem;">Sin personas aún...</span>';return;}
+  el.innerHTML=people.map(p=>`<span class="person-tag"><span class="color-dot" style="background:${personColor(p)}"></span>${p}<span class="remove" onclick="removePerson('${p}')">×</span></span>`).join('');
+}
+
+function addTransaction(date,desc,amount,cuotas,cuotaActual,saldoDiferido){
+  const id=++txIdCounter;
+  transactions.push({id,date,desc,amount:parseFloat(amount)||0,cuotas:parseInt(cuotas)||1,cuotaActual:parseInt(cuotaActual)||1,saldoDiferido:parseFloat(saldoDiferido)||0});
+  txAssignments[id]=new Set();
+  renderTxTable();updateSummary();
+}
+function removeTransaction(id){
+  transactions=transactions.filter(t=>t.id!==id);delete txAssignments[id];
+  renderTxTable();updateSummary();
+}
+function toggleAssignment(txId,person){
+  const set=txAssignments[txId];
+  if(set.has(person))set.delete(person);else set.add(person);
+  renderSplitChips(txId);updateSummary();
+}
+function renderSplitChips(txId){
+  const container=document.getElementById(`split-${txId}`);if(!container)return;
+  const assigned=txAssignments[txId];
+  container.innerHTML=people.length===0?'<span style="color:var(--muted);font-size:.7rem;">Agrega personas</span>':people.map(p=>{
+    const active=assigned.has(p);const col=personColor(p);
+    return`<span class="split-chip ${active?'active':''}" style="${active?`background:${col};border-color:${col};`:''}" onclick="toggleAssignment(${txId},'${p}')"><span class="cdot" style="background:${active?'rgba(255,255,255,.7)':col}"></span>${p}</span>`;
+  }).join('');
+}
+function renderTxTable(){
+  const tbody=document.getElementById('txBody');
+  document.getElementById('txCount').textContent=`${transactions.length} transacciones`;
+  if(!transactions.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="big">💳</div>Sube un PDF o agrega compras manualmente</div></td></tr>`;return;}
+  tbody.innerHTML=transactions.map(tx=>`
+    <tr class="fade-in">
+      <td style="white-space:nowrap;color:var(--muted)">${tx.date}</td>
+      <td><div style="font-weight:500">${tx.desc}</div></td>
+      <td><div class="tx-amount">${formatCOP(tx.amount)}</div></td>
+      <td>${tx.cuotas>1?`<span class="badge badge-purple">${tx.cuotaActual}/${tx.cuotas}</span>`:'<span class="badge badge-green">Contado</span>'}${tx.saldoDiferido>0?`<div style="font-size:.7rem;color:var(--muted);margin-top:2px">Saldo: ${formatCOP(tx.saldoDiferido)}</div>`:''}</td>
+      <td>${tx.saldoDiferido>0?`<span style="color:var(--accent3)">${formatCOP(tx.saldoDiferido)}</span>`:'—'}</td>
+      <td><div class="split-selector" id="split-${tx.id}"></div></td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeTransaction(${tx.id})">✕</button></td>
+    </tr>`).join('');
+  transactions.forEach(tx=>renderSplitChips(tx.id));
+}
+
+let mrCounter=1;
+function addManualRow(){
+  const id=mrCounter++;const div=document.createElement('div');div.className='manual-row';div.id=`mr-${id}`;
+  div.innerHTML=`<input placeholder="Descripción" class="desc"><input placeholder="Valor total" class="amount" type="number"><input placeholder="# cuotas" class="cuotas" type="number" min="1" value="1"><input placeholder="Cuota actual" class="cuotaNum" type="number" min="1" value="1"><button class="btn btn-sm btn-danger" onclick="removeRow(this)">✕</button>`;
+  document.getElementById('manualRows').appendChild(div);
+}
+function removeRow(btn){const row=btn.closest('.manual-row');if(document.querySelectorAll('.manual-row').length>1)row.remove();}
+function commitManual(){
+  document.querySelectorAll('.manual-row').forEach(row=>{
+    const desc=row.querySelector('.desc').value.trim();const amount=row.querySelector('.amount').value;
+    const cuotas=row.querySelector('.cuotas').value;const cuotaNum=row.querySelector('.cuotaNum').value;
+    if(!desc||!amount)return;
+    addTransaction(new Date().toLocaleDateString('es-CO'),desc,amount,cuotas,cuotaNum,0);
+  });
+  document.querySelectorAll('.manual-row').forEach((r,i)=>{if(i>0)r.remove();else r.querySelectorAll('input').forEach(inp=>{inp.value=inp.classList.contains('cuotas')||inp.classList.contains('cuotaNum')?'1':'';});});
+}
+
+// ===== FILE HANDLING =====
+function handleFile(event){
+  const file=event.target.files[0];if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  document.getElementById('fileInfo').classList.add('show');
+  document.getElementById('fileName').textContent=file.name;
+  document.getElementById('fileSize').textContent=(file.size/1024).toFixed(1)+' KB';
+  if(ext==='pdf')parsePDFWithAI(file);
+  else{const fr=new FileReader();fr.onload=e=>parseCSV(e.target.result);fr.readAsText(file,'UTF-8');}
+}
+function clearFile(){
+  document.getElementById('fileInput').value='';
+  document.getElementById('fileInfo').classList.remove('show');
+}
+
+async function parsePDFWithAI(file){
+  const base64=await fileToBase64(file);
+  const zone=document.getElementById('uploadZone');
+  const parsing=document.getElementById('aiParsing');
+  zone.style.display='none';parsing.classList.add('active');
+  const statusEl=document.getElementById('aiStatusText');
+  statusEl.textContent='Leyendo el PDF...';
+  try{
+    const prompt=`Eres un experto en extractos bancarios colombianos. Analiza este PDF y extrae TODA la información. Devuelve SOLO JSON sin markdown, con esta estructura exacta:
+{
+  "banco":"nombre banco",
+  "tarjeta":"numero o ultimos digitos",
+  "fechaLimitePago":"DD/MM/YYYY",
+  "pagoMinimo":0,
+  "pagoTotal":0,
+  "saldoAnterior":0,
+  "tasaInteres":"X.XX%",
+  "transacciones":[
+    {"fecha":"DD/MM/YYYY","descripcion":"texto","valor":0,"numeroCuotas":1,"cuotaActual":1,"saldoDiferido":0,"esPago":false}
+  ]
+}
+REGLAS: incluye TODAS las transacciones. valor=valor de la transaccion. saldoDiferido=saldo capital pendiente. si es pago/abono esPago:true. numeros sin separadores. campos no encontrados=null.`;
+
+    statusEl.textContent='Interpretando con IA...';
+    const response=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:4000,
+        messages:[{role:"user",content:[
+          {type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},
+          {type:"text",text:prompt}
+        ]}]
+      })
+    });
+    if(!response.ok){const err=await response.json();throw new Error(err.error?.message||'Error en la API');}
+    const data=await response.json();
+    statusEl.textContent='Procesando datos...';
+    let text=data.content.map(c=>c.text||'').join('');
+    text=text.replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim();
+    const extracted=JSON.parse(text);
+    applyExtractedData(extracted);
+  }catch(err){
+    console.error(err);
+    alert('Error al procesar el PDF con IA:\n'+err.message+'\n\nPuedes ingresar los datos manualmente o usar el ejemplo.');
+  }finally{
+    zone.style.display='';parsing.classList.remove('active');
+  }
+}
+
+function applyExtractedData(data){
+  if(data.banco)document.getElementById('bankName').value=data.banco;
+  if(data.tarjeta)document.getElementById('cardNum').value=data.tarjeta;
+  if(data.fechaLimitePago){try{const p=data.fechaLimitePago.split('/');if(p.length===3){const d=new Date(`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`);if(!isNaN(d))document.getElementById('dueDate').value=d.toISOString().split('T')[0];}}catch(e){}}
+  if(data.pagoMinimo)document.getElementById('minPay').value=data.pagoMinimo;
+  if(data.pagoTotal)document.getElementById('totalPay').value=data.pagoTotal;
+  if(data.saldoAnterior)document.getElementById('prevBalance').value=data.saldoAnterior;
+  if(data.tasaInteres)document.getElementById('interestRate').value=data.tasaInteres;
+  if(data.transacciones&&Array.isArray(data.transacciones)){
+    data.transacciones.forEach(tx=>{
+      if(tx.esPago)return;
+      if(!tx.descripcion||!tx.valor||tx.valor<=0)return;
+      addTransaction(tx.fecha||'',tx.descripcion,tx.valor,tx.numeroCuotas||1,tx.cuotaActual||1,tx.saldoDiferido||0);
+    });
+  }
+  updateSummary();
+  const count=transactions.length;
+  setTimeout(()=>alert(`✅ Extracto de ${data.banco||'banco'} procesado exitosamente.\n\n${count} transacciones encontradas.\n\nAhora agrega las personas y asigna cada compra.`),100);
+}
+
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result.split(',')[1]);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function parseCSV(text){
+  const lines=text.split('\n').filter(l=>l.trim());let parsed=0;
+  lines.forEach(line=>{
+    const cols=line.split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+    if(cols.length<2)return;
+    const amount=parseMoney(cols[2]||'0');
+    if(cols[1]&&amount){addTransaction(cols[0],cols[1],amount,cols[3]||1,cols[4]||1,parseMoney(cols[5]||'0'));parsed++;}
+  });
+  if(!parsed)alert('No se leyeron transacciones del CSV.\nFormato: Fecha,Descripción,Valor,NumCuotas,CuotaActual,SaldoDiferido');
+}
+
+function updateSummary(){
+  const minPay=parseMoney(document.getElementById('minPay').value);
+  const totalPay=parseMoney(document.getElementById('totalPay').value);
+  let personAmounts={};
+  people.forEach(p=>personAmounts[p]={txMonthly:0,saldoDiferido:0});
+  let totalAssigned=0,unassignedAmount=0;
+  transactions.forEach(tx=>{
+    const assigned=Array.from(txAssignments[tx.id]);const n=assigned.length;
+    if(!n){unassignedAmount+=tx.amount;return;}
+    assigned.forEach(p=>{if(!personAmounts[p])return;personAmounts[p].txMonthly+=tx.amount/n;personAmounts[p].saldoDiferido+=tx.saldoDiferido/n;});
+    totalAssigned+=tx.amount;
+  });
+  const grandMonthly=Object.values(personAmounts).reduce((a,b)=>a+b.txMonthly,0)||1;
+  document.getElementById('totalsBar').innerHTML=`
+    <div class="total-item"><div class="t-label">Pago Mínimo</div><div class="t-value highlight-accent">${formatCOP(minPay)}</div></div>
+    <div class="total-item"><div class="t-label">Pago Total</div><div class="t-value highlight-red">${formatCOP(totalPay)}</div></div>
+    <div class="total-item"><div class="t-label">Total Compras</div><div class="t-value highlight-green">${formatCOP(totalAssigned)}</div></div>
+    <div class="total-item"><div class="t-label">Sin asignar</div><div class="t-value ${unassignedAmount>0?'highlight-red':''}">${formatCOP(unassignedAmount)}</div></div>`;
+  const cards=document.getElementById('summaryCards');
+  if(!people.length){cards.innerHTML=`<div class="empty-state" style="grid-column:1/-1">Agrega personas y asigna compras para ver el resumen</div>`;return;}
+  cards.innerHTML=people.map(p=>{
+    const pa=personAmounts[p];const ratio=grandMonthly>0?pa.txMonthly/grandMonthly:0;
+    const personMinPay=minPay*ratio;const personTotalPay=totalPay*ratio;
+    const col=personColor(p);const initials=p.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+    return`<div class="summary-card fade-in">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${col}"></div>
+      <div class="summary-name"><div class="avatar" style="background:${col}">${initials}</div>${p}</div>
+      <div class="summary-row"><span class="label">Compras este mes</span><span class="value">${formatCOP(pa.txMonthly)}</span></div>
+      <div class="summary-row"><span class="label">Saldo adeudado total</span><span class="value" style="color:var(--accent2)">${formatCOP(pa.saldoDiferido)}</span></div>
+      <div class="summary-row"><span class="label">% del extracto</span><span class="value">${(ratio*100).toFixed(1)}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${ratio*100}%;background:${col}"></div></div>
+      <div class="summary-total">
+        <div class="summary-row" style="margin-bottom:.3rem"><span style="font-size:.8rem;color:var(--muted)">Cuota mínima a pagar</span><span style="color:${col}">${formatCOP(personMinPay)}</span></div>
+        <div class="summary-row" style="margin-bottom:0"><span style="font-size:.8rem;color:var(--muted)">Para pagar todo</span><span style="color:var(--accent2);font-size:1rem;font-weight:700">${formatCOP(personTotalPay)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+  const note=document.getElementById('unassignedNote');
+  if(unassignedAmount>0){note.style.display='block';document.getElementById('unassignedText').textContent=`${formatCOP(unassignedAmount)} en compras sin asignar. Asígnalas para un resumen exacto.`;}
+  else note.style.display='none';
+}
+
+function addSampleData(){
+  document.getElementById('bankName').value='Banco Serfinanza';
+  document.getElementById('cardNum').value='1231';
+  document.getElementById('dueDate').value='2026-03-03';
+  document.getElementById('minPay').value='1028381.50';
+  document.getElementById('totalPay').value='5780312.88';
+  document.getElementById('prevBalance').value='5160623.14';
+  document.getElementById('interestRate').value='1.88%';
+  const sample=[
+    ['15/04/2025','AVANCE 0000000',500000,10,14,291670],
+    ['18/11/2022','COMPRA CRT TCO',1336000,49,48,340585],
+    ['09/11/2022','COMPRA TCO',3811786,40,48,635306],
+    ['09/04/2024','AVANCE SUPERTI',700000,21,24,29158],
+    ['17/10/2024','AVANCE SUPERTI',700000,24,16,233328],
+    ['07/11/2024','AVANCE SUPERTI',470000,19,24,176255],
+    ['07/05/2025','AVANCE SUPERTI',200000,10,14,116670],
+    ['20/06/2025','AVANCE SUPERTI',550000,8,10,110000],
+    ['12/11/2025','AVANCE',2000000,3,7,958333],
+    ['24/12/2025','EDS PUERTA DE LAS AMER',128500,2,2,64250],
+    ['18/12/2025','AVANCE',500000,22,24,458333],
+    ['02/02/2026','COMISION AVANCE',7900,1,1,0],
+    ['15/02/2026','CUOTA DE MANEJO',37000,1,1,0],
+    ['25/01/2026','RESTAURANTE LOS TIZONE',278466,3,2,92155],
+    ['02/02/2026','AVANCE',700000,11,12,641666],
+  ];
+  sample.forEach(([date,desc,amount,cuotas,cuotaActual,saldoDif])=>{if(amount>0)addTransaction(date,desc,amount,cuotas,cuotaActual,saldoDif);});
+  updateSummary();
+}
+function clearAll(){if(!confirm('¿Limpiar todas las transacciones?'))return;transactions=[];txAssignments={};renderTxTable();updateSummary();}
+
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
+zone.addEventListener('drop',e=>{
+  e.preventDefault();zone.classList.remove('drag');
+  const file=e.dataTransfer.files[0];
+  if(file)handleFile({target:{files:e.dataTransfer.files}});
+});
+
+renderPeople();renderTxTable();updateSummary();
+</script>
+</body>
+</html>
